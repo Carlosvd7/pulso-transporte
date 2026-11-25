@@ -1,0 +1,38 @@
+[project]
+name = "pulso"
+version = "0.1.0"
+description = "Pulso del transporte: retrasos de Renfe en tiempo real, calidad de datos y predicción"
+authors = [{ name = "Carlos Manuel Velázquez Diego" }]
+requires-python = ">=3.12"
+dependencies = [
+    "duckdb>=2.0.1",
+    "gtfs-realtime-bindings>=3.0.0",
+    "httpx>=0.28.1",
+    "protobuf>=7.36.2",
+    "pyarrow>=26.0.1",
+    "pydantic>=2.14.4",
+    "tzdata>=2026.6",
+]
+
+[project.scripts]
+pulso = "pulso.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.13.10,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "ruff>=0.17.6",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
