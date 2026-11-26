@@ -1,4 +1,4 @@
-"""Línea de comandos: collect, produce, replay, status, static, silver, report."""
+"""Línea de comandos: collect, produce, replay, process, quality, status, static, silver, report."""
 
 from __future__ import annotations
 
@@ -120,6 +120,21 @@ def _cmd_replay(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_process(args: argparse.Namespace) -> int:
+    settings = load_settings()
+    if args.offline:
+        from pulso.processor import replay_offline
+
+        app = replay_offline(settings, args.since, args.until)
+        print(f"Procesado sin Kafka: {dict(app.proc.counters)}")
+        return 0
+    from pulso.processor import run_processor
+
+    _kafka_publisher(settings)  # asegura que existen los temas (espera a Redpanda)
+    run_processor(settings, rehydrate_minutes=args.rehydrate)
+    return 0
+
+
 def _cmd_quality(args: argparse.Namespace) -> int:
     from pulso.quality import format_summary, read_recent_reports, summarize
 
@@ -168,6 +183,22 @@ def main(argv: list[str] | None = None) -> int:
         help="0 = lo más rápido posible; 60 = una hora en un minuto",
     )
     p.set_defaults(func=_cmd_replay)
+
+    p = sub.add_parser("process", help="procesar en streaming: KPIs, anomalías, estado en vivo")
+    p.add_argument(
+        "--rehydrate",
+        type=float,
+        default=30,
+        help="minutos de historia a releer de Redpanda al arrancar",
+    )
+    p.add_argument(
+        "--offline",
+        action="store_true",
+        help="procesar el histórico de bronze sin Kafka (mismo código)",
+    )
+    p.add_argument("--since", type=date.fromisoformat, help="(offline) AAAA-MM-DD")
+    p.add_argument("--until", type=date.fromisoformat, help="(offline) AAAA-MM-DD")
+    p.set_defaults(func=_cmd_process)
 
     p = sub.add_parser("quality", help="métricas de calidad recientes (desde Redpanda)")
     p.add_argument("--minutes", type=float, default=60)

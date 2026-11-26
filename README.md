@@ -3,7 +3,8 @@
 Retrasos de Renfe (Cercanías y AV/LD/MD) en tiempo real: ingesta continua, procesamiento en
 streaming, calidad de datos, predicción de retrasos y un panel en vivo.
 
-> 🚧 En construcción. Hechas: fases 0 (recolector), 1 (horarios + modelo de datos) y 2 (bus + calidad).
+> 🚧 En construcción. Hechas: fases 0 (recolector), 1 (horarios + modelo de datos),
+> 2 (bus + calidad) y 3 (procesamiento en streaming + anomalías).
 
 ## Datos
 
@@ -79,6 +80,36 @@ Métricas reales de las primeras ~9 h recogidas (`pulso quality`), 1 120 snapsho
 | AV/LD, retrasos | 6 475 | 99,77 % | 15 viajes cancelados repetidos en el mismo mensaje |
 | AV/LD, posiciones | 1 449 | 100 % | la cabecera llega siempre 1 h atrasada, aunque las posiciones son frescas |
 
+## Procesamiento en streaming (fase 3)
+
+`pulso process` consume los temas de Redpanda y calcula, en ventanas fijas de 5 minutos
+por **hora del evento** (la cabecera del feed, no la hora de llegada):
+
+- **KPIs por línea, núcleo, red y estación**: trenes, retraso medio, p50, p90, máximo,
+  % de puntualidad (criterio propio: < 3 min en Cercanías, < 5 min en AV/LD) y cancelaciones.
+- **Anomalías**: pico de retraso respecto a la historia reciente de la línea (z-score robusto
+  con mediana y MAD), retraso medio alto (≥ 15 min), oleada de cancelaciones (≥ 3 en un
+  núcleo en 5 min) y **tren detenido** (su retraso crece al ritmo del reloj durante 15 min).
+- **Estado en vivo** (`data/live/state.json`, cada 10 s): trenes con retraso y posición,
+  líneas con su evolución, anomalías, avisos de Renfe y salud de los datos.
+
+Salidas: `data/gold/{kpi_line_5min, kpi_stop_5min, quality_5min, anomalies}` (Parquet) y los
+temas `pulso.kpis.v1` y `pulso.anomalies.v1`.
+
+Decisiones de diseño:
+
+- **Python en vez de Spark Structured Streaming.** El volumen real es de decenas de eventos
+  por segundo como mucho, y el despliegue gratuito es un solo contenedor. El núcleo
+  (`stream.py`) es lógica pura sin Kafka, así que el mismo código corre con Redpanda, con un
+  bus en memoria o sobre el histórico (`pulso process --offline`: 9 h de datos en ~5 s).
+- **Marca de agua por partición** (el mínimo de las fuentes activas) con 90 s de margen, como
+  en Flink o Spark. Al arrancar, el backlog se ordena por hora del evento antes de procesarlo.
+- **Arranque sin estado guardado.** El procesador relee los últimos 30 min de Redpanda y la
+  historia de KPIs de gold. Reescribir una ventana es idempotente (un fichero por ventana).
+- **Cada tren cuenta una vez por ventana.** Se excluyen de las medias los trenes de días
+  pasados que Renfe sigue publicando (4 818 eventos en la primera noche), los retrasos
+  marcados como extremos y los trenes detenidos (que se muestran como anomalía).
+
 ## Arranque rápido
 
 Requisitos: Python 3.12 y [uv](https://docs.astral.sh/uv/).
@@ -97,7 +128,7 @@ uv run pytest
 Con Docker (recomendado, se reinicia solo):
 
 ```powershell
-docker compose up -d        # Redpanda + consola (http://localhost:8080) + productor
+docker compose up -d        # Redpanda + consola (http://localhost:8080) + productor + procesador
 uv run pulso quality        # métricas de calidad de la última hora
 uv run pulso replay         # re-publicar el histórico de bronze en Redpanda
 ```

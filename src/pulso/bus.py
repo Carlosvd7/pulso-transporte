@@ -19,6 +19,8 @@ TOPIC_VEHICLE_POSITIONS = "renfe.vehicle_positions.v1"
 TOPIC_ALERTS = "renfe.alerts.v1"
 TOPIC_DLQ = "renfe.dlq.v1"
 TOPIC_QUALITY = "pulso.quality.v1"
+TOPIC_KPIS = "pulso.kpis.v1"
+TOPIC_ANOMALIES = "pulso.anomalies.v1"
 
 DAY_MS = 24 * 3600 * 1000
 # nombre -> (particiones, retención en ms)
@@ -28,6 +30,8 @@ TOPICS: dict[str, tuple[int, int]] = {
     TOPIC_ALERTS: (1, 30 * DAY_MS),
     TOPIC_DLQ: (1, 30 * DAY_MS),
     TOPIC_QUALITY: (1, 30 * DAY_MS),
+    TOPIC_KPIS: (1, 30 * DAY_MS),
+    TOPIC_ANOMALIES: (1, 90 * DAY_MS),
 }
 
 

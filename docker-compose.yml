@@ -54,5 +54,20 @@ services:
     stop_grace_period: 30s    # tiempo para volcar a Parquet lo pendiente al parar
     restart: unless-stopped
 
+  processor:
+    image: pulso-transporte:local
+    command: ["process"]
+    environment:
+      PULSO_KAFKA_BOOTSTRAP: redpanda:9092
+    volumes:
+      - ./data:/app/data      # escribe gold/ y live/state.json
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      producer:
+        condition: service_started
+    stop_grace_period: 20s
+    restart: unless-stopped
+
 volumes:
   redpanda-data:
