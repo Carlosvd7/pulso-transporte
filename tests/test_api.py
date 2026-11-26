@@ -75,3 +75,35 @@ def test_api_endpoints(tmp_path):
     page = client.get("/")
     assert page.status_code == 200 and "Pulso del transporte" in page.text
     assert client.get("/static/app.js").status_code == 200
+
+
+def test_lite_pipeline_runs_end_to_end_without_kafka(tmp_path, fixture_bytes, monkeypatch):
+    """El modo ligero usa el mismo código con un bus en memoria: snapshot -> live/state.json."""
+    import httpx
+
+    import pulso.lite as lite
+    from pulso.config import Feed, FeedKind
+
+    monkeypatch.setattr("pulso.static_gtfs.refresh", lambda settings: [])
+    payload = fixture_bytes("trip_updates")
+    feed = Feed("cercanias_trip_updates", "cercanias", FeedKind.TRIP_UPDATES, "https://x/tu.pb")
+    real_client = httpx.Client
+
+    def fake_client(*args, **kwargs):
+        kwargs["transport"] = httpx.MockTransport(lambda req: httpx.Response(200, content=payload))
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "Client", fake_client)
+    settings = Settings(
+        data_dir=tmp_path,
+        poll_interval_s=0,
+        flush_interval_s=0,
+        http_timeout_s=5,
+        user_agent="test",
+    )
+    thread, _ = lite.start_pipeline(settings, (feed,), max_cycles=2)
+    thread.join(timeout=30)
+    state = TestClient(create_app(settings)).get("/api/state").json()
+    assert len(state["trains"]) == 95
+    assert state["quality"]["cercanias_trip_updates"]["n_in"] == 95  # 2ª vuelta: sin cambios
+    assert list((tmp_path / "bronze").rglob("*.parquet"))

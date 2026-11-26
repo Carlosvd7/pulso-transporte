@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import signal
+import threading
 import time
 from collections import Counter
 from collections.abc import Callable
@@ -114,8 +115,9 @@ class Collector:
                 log.info("volcados %d ficheros | %s", len(paths), self.stats.summary())
 
     def run(self, max_cycles: int | None = None) -> None:
-        signal.signal(signal.SIGINT, self.stop)
-        signal.signal(signal.SIGTERM, self.stop)
+        if threading.current_thread() is threading.main_thread():
+            signal.signal(signal.SIGINT, self.stop)
+            signal.signal(signal.SIGTERM, self.stop)
         headers = {"User-Agent": self.settings.user_agent}
         cycles = 0
         with httpx.Client(

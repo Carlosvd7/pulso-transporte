@@ -17,6 +17,7 @@ import hashlib
 import io
 import json
 import logging
+import os
 import shutil
 import zipfile
 from datetime import datetime
@@ -117,15 +118,19 @@ def _gtfs_time_to_s(col: str) -> str:
 
 
 def _load_raw(con: duckdb.DuckDBPyConnection, csv: Path, name: str) -> list[str]:
-    """Carga un .txt GTFS como texto, recortando nombres de columna y valores."""
+    """Expone un .txt GTFS como vista de texto, recortando nombres de columna y valores.
+
+    Son vistas (no tablas) para no tener el CSV entero en memoria dos veces: en el servidor
+    pequeño (1 GB) stop_times de Cercanías no cabría.
+    """
+    path = csv.as_posix().replace("'", "''")
     con.execute(
-        f"create or replace temp table raw_{name} as select * from read_csv(?, all_varchar = true,"
-        " header = true, quote = '\"')",
-        [csv.as_posix()],
+        f"create or replace temp view raw_{name} as select * from read_csv('{path}', "
+        "all_varchar = true, header = true, quote = '\"')"
     )
     cols = [r[0] for r in con.execute(f"describe raw_{name}").fetchall()]
     select = ", ".join(f'nullif(trim("{c}"), \'\') as "{c.strip()}"' for c in cols)
-    con.execute(f"create or replace temp table {name} as select {select} from raw_{name}")
+    con.execute(f"create or replace temp view {name} as select {select} from raw_{name}")
     return [c.strip() for c in cols]
 
 
@@ -139,7 +144,15 @@ def build(settings: Settings, network: str, zip_path: Path) -> Path:
     try:
         with zipfile.ZipFile(zip_path) as zf:
             zf.extractall(tmp)
-        con = duckdb.connect()
+        # Límite de memoria: el servidor gratuito pequeño tiene 1 GB (DuckDB vuelca a disco).
+        con = duckdb.connect(
+            config={
+                "memory_limit": os.environ.get("PULSO_DUCKDB_MEMORY", "350MB"),
+                "threads": int(os.environ.get("PULSO_DUCKDB_THREADS", "1")),
+                "preserve_insertion_order": False,
+                "temp_directory": str(tmp / "_duckdb_spill"),
+            }
+        )
         present = {t for t in TABLES if (tmp / f"{t}.txt").exists()}
         for t in present:
             _load_raw(con, tmp / f"{t}.txt", t)

@@ -142,6 +142,13 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_lite(args: argparse.Namespace) -> int:
+    from pulso.lite import serve_lite
+
+    serve_lite(load_settings(), args.host, args.port)
+    return 0
+
+
 def _cmd_quality(args: argparse.Namespace) -> int:
     from pulso.quality import format_summary, read_recent_reports, summarize
 
@@ -211,6 +218,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8000)
     p.set_defaults(func=_cmd_serve)
+
+    p = sub.add_parser("lite", help="todo en un proceso, sin Redpanda (servidores pequeños)")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=8000)
+    p.set_defaults(func=_cmd_lite)
 
     p = sub.add_parser("quality", help="métricas de calidad recientes (desde Redpanda)")
     p.add_argument("--minutes", type=float, default=60)

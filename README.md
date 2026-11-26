@@ -137,6 +137,12 @@ curl -fsSLO https://raw.githubusercontent.com/Carlosvd7/pulso-transporte/main/de
 bash setup-vm.sh <IP_PUBLICA>
 ```
 
+Si Oracle no tiene capacidad ARM (pasa a menudo en Madrid), hay un **modo ligero** para la
+VM AMD gratuita de 1 GB: `bash setup-vm.sh <IP> lite`. Ejecuta toda la tubería en un solo
+proceso (`pulso lite`), con el mismo código y un bus en memoria en lugar de Redpanda. Medido con
+un límite de 950 MB: pico de ~216 MB con los horarios completos cargados y 700 trenes en
+circulación.
+
 `docker-compose.prod.yml` deja Redpanda y su consola accesibles solo desde la propia máquina
 (consola por túnel SSH: `ssh -L 8080:localhost:8080 ubuntu@<IP>`) y publica solo el panel.
 
