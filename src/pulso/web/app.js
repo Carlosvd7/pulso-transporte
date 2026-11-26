@@ -351,7 +351,7 @@
     const areas = [...new Set(lines.filter((l) => !ui.net || l.network === ui.net).map((l) => l.area))]
       .filter((a) => a && a !== "Sin cruzar con horario").sort((a, b) => a.localeCompare(b, "es"));
     const key = areas.join("|");
-    if (sel.dataset.key !== key) {
+    if (sel.dataset.key !== key && document.activeElement !== sel) {
       sel.replaceChildren(el("option", { value: "" }, "Todos los núcleos"), ...areas.map((a) => el("option", { value: a }, a)));
       sel.dataset.key = key;
     }
@@ -607,29 +607,45 @@
     const play = $("#replay-play");
     let timer = null;
     let busy = false;
+    // Si llega una petición mientras se carga otra, se atiende la última (no se pierde).
+    let wanted = null;
     async function go(i) {
+      wanted = i;
       if (busy) return;
       busy = true;
       try {
-        await source.load(i);
-        slider.value = String(i);
-        $("#replay-time").textContent = hhmm.format(new Date(frames[i].t));
-        await loadState();
-        await loadHistory();
+        while (wanted !== null) {
+          const target = wanted;
+          wanted = null;
+          await source.load(target);
+          slider.value = String(target);
+          $("#replay-time").textContent = hhmm.format(new Date(frames[target].t));
+          await loadState();
+          await loadHistory();
+        }
       } finally { busy = false; }
+    }
+    function setPaused(paused) {
+      play.classList.toggle("paused", paused);
+      play.setAttribute("aria-label", paused ? "Reproducir" : "Pausar");
+      schedule();
     }
     function schedule() {
       clearInterval(timer);
       if (play.classList.contains("paused")) return;
-      timer = setInterval(() => go((source.idx + 1) % frames.length), Number($("#replay-speed").value));
+      timer = setInterval(() => { if (!busy) go((source.idx + 1) % frames.length); },
+        Number($("#replay-speed").value));
     }
-    play.addEventListener("click", () => {
-      play.classList.toggle("paused");
-      play.setAttribute("aria-label", play.classList.contains("paused") ? "Reproducir" : "Pausar");
-      schedule();
-    });
+    play.addEventListener("click", () => setPaused(!play.classList.contains("paused")));
     $("#replay-speed").addEventListener("change", schedule);
-    slider.addEventListener("input", () => go(Number(slider.value)));
+    slider.addEventListener("pointerdown", () => setPaused(true));
+    slider.addEventListener("keydown", () => setPaused(true));
+    slider.addEventListener("input", () => { setPaused(true); go(Number(slider.value)); });
+    // En cuanto el usuario interactúa con el panel, la repetición se pausa para dejarle explorar.
+    $("#panel").addEventListener("pointerdown", (e) => {
+      if (!e.target.closest(".seg.small")) setPaused(true);
+    });
+    $("#area").addEventListener("focus", () => setPaused(true));
     // Empieza en el momento con más trenes, para que la primera impresión sea representativa.
     const start = frames.reduce((best, f, i) => (f.trains > frames[best].trains ? i : best), 0);
     await go(start);

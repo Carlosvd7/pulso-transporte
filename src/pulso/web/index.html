@@ -46,6 +46,7 @@
       <div class="replay-head">
         <span class="pill">Repetición</span>
         <span id="replay-label">Datos reales grabados</span>
+        <span class="muted small" id="replay-hint">Se pausa sola cuando exploras el panel; pulsa ▶ para seguir.</span>
       </div>
       <div class="replay-controls">
         <button id="replay-play" class="icon-btn primary" aria-label="Pausar">
@@ -54,8 +55,8 @@
         <input id="replay-slider" type="range" min="0" max="0" value="0" aria-label="Momento de la repetición">
         <span id="replay-time" class="mono">--:--</span>
         <select id="replay-speed" aria-label="Velocidad">
-          <option value="4000">1×</option>
-          <option value="2000" selected>2×</option>
+          <option value="4000" selected>1×</option>
+          <option value="2000">2×</option>
           <option value="800">5×</option>
         </select>
       </div>
