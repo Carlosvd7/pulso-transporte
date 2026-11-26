@@ -1,0 +1,33 @@
+# Ajustes para el servidor (Oracle Cloud Always Free, Ubuntu ARM64).
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Diferencias con local: nada expuesto salvo HTTPS (Caddy con certificado automático);
+# Redpanda y su consola solo son accesibles desde la propia máquina (o por túnel SSH).
+services:
+  redpanda:
+    ports: !reset []
+
+  console:
+    ports: !override
+      - "127.0.0.1:8080:8080"
+
+  web:
+    ports: !reset []
+
+  caddy:
+    image: caddy:2.8.4
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PULSO_DOMAIN: ${PULSO_DOMAIN:?Define PULSO_DOMAIN en .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:

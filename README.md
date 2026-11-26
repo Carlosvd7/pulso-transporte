@@ -125,6 +125,25 @@ Decisiones de diseño:
 API: `/api/state`, `/api/kpis`, `/api/stops`, `/api/anomalies`, `/api/quality`,
 `/api/predictions`, `/api/health` (documentación automática en `/docs`).
 
+## Despliegue (0 €)
+
+Servidor: una VM **Oracle Cloud Always Free** (Ubuntu 24.04, ARM64, 2 OCPU y 12 GB) con la
+misma pila de Docker Compose que en local, más [Caddy](https://caddyserver.com) para HTTPS
+automático. El dominio es gratuito y no requiere registro: `<ip-con-guiones>.sslip.io`.
+
+```bash
+# en la VM (abre antes los puertos 80 y 443 en la "security list" de la VCN)
+curl -fsSLO https://raw.githubusercontent.com/Carlosvd7/pulso-transporte/main/deploy/setup-vm.sh
+bash setup-vm.sh <IP_PUBLICA>
+```
+
+`docker-compose.prod.yml` deja Redpanda y su consola accesibles solo desde la propia máquina
+(consola por túnel SSH: `ssh -L 8080:localhost:8080 ubuntu@<IP>`) y publica solo el panel.
+
+¿Por qué no Hugging Face Spaces? Desde julio de 2026 los Spaces con Docker exigen el plan PRO,
+y el resto de planes gratuitos (Render, Koyeb…) duermen el servicio cuando no hay visitas, lo
+que cortaría la ingesta.
+
 ## Arranque rápido
 
 Requisitos: Python 3.12 y [uv](https://docs.astral.sh/uv/).
