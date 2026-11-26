@@ -49,6 +49,7 @@ Requisitos: Python 3.12 y [uv](https://docs.astral.sh/uv/).
 ```powershell
 uv sync
 uv run pulso collect        # recoge los feeds cada 30 s en data/bronze (Ctrl+C para parar)
+.\scripts\collector.ps1 start   # ...o en segundo plano en Windows (stop / status)
 uv run pulso status         # resumen de lo recogido
 uv run pulso static         # descarga y limpia el GTFS estático si cambió
 uv run pulso silver         # decodifica lo pendiente de bronze a silver
