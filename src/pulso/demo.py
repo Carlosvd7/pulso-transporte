@@ -232,9 +232,9 @@ def build_demo(
     html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
     # Versión por contenido en las URLs: tras republicar, nadie se queda con el JS viejo en caché.
     version = hashlib.sha256(
-        b"".join((WEB_DIR / f).read_bytes() for f in ("app.js", "styles.css"))
+        b"".join((WEB_DIR / f).read_bytes() for f in ("app.js", "styles.css", "train3d.js"))
     ).hexdigest()[:10]
-    for asset in ("styles.css", "app.js"):
+    for asset in ("styles.css", "app.js", "train3d.js"):
         html = html.replace(f"/static/{asset}", f"static/{asset}?v={version}")
     html = html.replace(
         "<head>", '<head>\n  <script>window.PULSO_DEMO = "data/manifest.json";</script>', 1

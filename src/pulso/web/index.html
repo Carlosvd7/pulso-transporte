@@ -35,12 +35,15 @@
   </header>
 
   <section class="hero">
+    <div class="hero-top">
     <div class="hero-text">
       <p class="eyebrow">Proyecto de ingeniería de datos · streaming</p>
       <h1>¿Llega tarde mi tren? Toda la red de Renfe, cada 30 segundos.</h1>
       <p class="lede">Cada 30 segundos se leen los datos abiertos de Renfe, se validan con contratos de calidad,
         viajan por un bus de eventos (Redpanda/Kafka) y se procesan en streaming para calcular la puntualidad
         de cada línea y detectar anomalías.</p>
+    </div>
+    <div class="hero-train" id="hero-train" aria-hidden="true"></div>
     </div>
     <div class="replay" id="replay" hidden>
       <div class="replay-head">
@@ -225,5 +228,7 @@
   <div id="tip" class="tip" role="tooltip" hidden></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="/static/app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
+  <script src="/static/train3d.js" defer></script>
 </body>
 </html>
