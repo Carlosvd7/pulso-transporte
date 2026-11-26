@@ -19,3 +19,6 @@ Thumbs.db
 
 # Configuración local de herramientas
 .claude/
+
+# Demo estática generada (se publica en la rama gh-pages)
+site/

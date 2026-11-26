@@ -149,6 +149,24 @@ def _cmd_lite(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_demo(args: argparse.Namespace) -> int:
+    from datetime import datetime
+    from pathlib import Path
+    from zoneinfo import ZoneInfo
+
+    from pulso.demo import build_demo
+
+    tz = ZoneInfo("Europe/Madrid")
+    since = datetime.fromisoformat(args.since).replace(tzinfo=tz)
+    until = datetime.fromisoformat(args.until).replace(tzinfo=tz)
+    m = build_demo(load_settings(), Path(args.out), since, until, args.every)
+    print(
+        f"Demo generada en {args.out}: {len(m['frames'])} fotogramas "
+        f"({args.since} -> {args.until}, hora de Madrid)"
+    )
+    return 0
+
+
 def _cmd_quality(args: argparse.Namespace) -> int:
     from pulso.quality import format_summary, read_recent_reports, summarize
 
@@ -223,6 +241,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8000)
     p.set_defaults(func=_cmd_lite)
+
+    p = sub.add_parser("demo", help="generar la demo estática (repetición de datos reales)")
+    p.add_argument("--since", required=True, help="AAAA-MM-DDTHH:MM, hora de Madrid")
+    p.add_argument("--until", required=True, help="AAAA-MM-DDTHH:MM, hora de Madrid")
+    p.add_argument("--every", type=float, default=5, help="minutos entre fotogramas")
+    p.add_argument("--out", default="site")
+    p.set_defaults(func=_cmd_demo)
 
     p = sub.add_parser("quality", help="métricas de calidad recientes (desde Redpanda)")
     p.add_argument("--minutes", type=float, default=60)

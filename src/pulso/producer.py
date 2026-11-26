@@ -12,7 +12,7 @@ import logging
 import threading
 import time
 from collections.abc import Iterator
-from datetime import date
+from datetime import date, datetime
 
 import duckdb
 
@@ -69,11 +69,12 @@ def iter_bronze(
     """Snapshots archivados en orden de llegada (todas las fuentes intercaladas)."""
     pattern = (settings.data_dir / "bronze" / "feed=*" / "date=*" / "*.parquet").as_posix()
     where, params = ["true"], []
+    # date -> filtra por partición (rápido); datetime -> filtra por hora exacta de llegada.
     if since:
-        where.append("date >= ?")
+        where.append("fetched_at >= ?" if isinstance(since, datetime) else "date >= ?")
         params.append(since)
     if until:
-        where.append("date <= ?")
+        where.append("fetched_at <= ?" if isinstance(until, datetime) else "date <= ?")
         params.append(until)
     if feeds:
         where.append(f"feed in ({', '.join('?' for _ in feeds)})")

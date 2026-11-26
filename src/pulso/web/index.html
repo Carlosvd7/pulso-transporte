@@ -4,32 +4,78 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pulso del transporte</title>
-  <meta name="description" content="Retrasos de Renfe (Cercanías y AV/LD) en tiempo real: puntualidad por línea, anomalías y calidad de los datos.">
+  <meta name="description" content="Retrasos de Renfe (Cercanías y AV/LD) en tiempo real: puntualidad por línea, anomalías y calidad de los datos. Proyecto de ingeniería de datos en streaming.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232a78d6'/%3E%3Cpath d='M4 17h6l3-7 5 13 3-6h7' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <header class="top">
-    <div class="brand">
+    <a class="brand" href="#" aria-label="Pulso del transporte, inicio">
       <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M4 17h6l3-7 5 13 3-6h7"/></svg>
-      <div>
-        <h1>Pulso del transporte</h1>
-        <p class="sub">Retrasos de Renfe en tiempo real · Cercanías y Alta velocidad/Larga distancia</p>
+      <span>
+        <span class="brand-name">Pulso del transporte</span>
+        <span class="sub">Retrasos de Renfe en tiempo real</span>
+      </span>
+    </a>
+    <nav class="nav" aria-label="Secciones">
+      <a href="#panel">Panel</a>
+      <a href="#como-funciona">Cómo funciona</a>
+      <a href="https://github.com/Carlosvd7/pulso-transporte" rel="noopener">GitHub</a>
+    </nav>
+    <div class="controls">
+      <span id="live" class="live" aria-live="polite"><i></i><span>Conectando…</span></span>
+      <button id="theme" class="icon-btn" aria-label="Cambiar tema" title="Cambiar tema">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-text">
+      <p class="eyebrow">Proyecto de ingeniería de datos · streaming</p>
+      <h1>¿Llega tarde mi tren? Toda la red de Renfe, cada 30 segundos.</h1>
+      <p class="lede">Cada 30 segundos se leen los datos abiertos de Renfe, se validan con contratos de calidad,
+        viajan por un bus de eventos (Redpanda/Kafka) y se procesan en streaming para calcular la puntualidad
+        de cada línea y detectar anomalías.</p>
+    </div>
+    <div class="replay" id="replay" hidden>
+      <div class="replay-head">
+        <span class="pill">Repetición</span>
+        <span id="replay-label">Datos reales grabados</span>
+      </div>
+      <div class="replay-controls">
+        <button id="replay-play" class="icon-btn primary" aria-label="Pausar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-pause" d="M7 5h3v14H7zM14 5h3v14h-3z"/><path class="i-play" d="M8 5v14l11-7z"/></svg>
+        </button>
+        <input id="replay-slider" type="range" min="0" max="0" value="0" aria-label="Momento de la repetición">
+        <span id="replay-time" class="mono">--:--</span>
+        <select id="replay-speed" aria-label="Velocidad">
+          <option value="4000">1×</option>
+          <option value="2000" selected>2×</option>
+          <option value="800">5×</option>
+        </select>
       </div>
     </div>
-    <div class="controls">
+  </section>
+
+  <main id="panel">
+    <div class="filters" role="group" aria-label="Filtros">
       <div class="seg" role="group" aria-label="Red">
         <button data-net="" class="on">Todas</button>
         <button data-net="cercanias">Cercanías</button>
         <button data-net="ld">AV/LD</button>
       </div>
-      <span id="live" class="live" aria-live="polite"><i></i><span>Conectando…</span></span>
-      <button id="theme" class="icon-btn" aria-label="Cambiar tema" title="Cambiar tema">◐</button>
+      <label class="select">
+        <span class="sr-only">Núcleo</span>
+        <select id="area" aria-label="Núcleo"><option value="">Todos los núcleos</option></select>
+      </label>
+      <span class="muted small" id="filter-note"></span>
     </div>
-  </header>
 
-  <main>
     <section class="tiles" id="tiles" aria-label="Resumen"></section>
 
     <section class="grid-map">
@@ -38,15 +84,18 @@
           <h2>Trenes ahora</h2>
           <div class="legend" id="map-legend"></div>
         </div>
-        <div id="map" role="region" aria-label="Mapa de trenes en circulación"></div>
-        <p class="empty-map" id="map-empty" hidden></p>
+        <div class="map-wrap">
+          <div id="map" role="region" aria-label="Mapa de trenes en circulación"></div>
+          <aside class="train-card" id="train-card" hidden></aside>
+          <p class="empty-map" id="map-empty" hidden></p>
+        </div>
       </div>
       <div class="card lines-card">
         <div class="card-head">
           <h2>Líneas</h2>
-          <input id="line-search" type="search" placeholder="Buscar línea o núcleo" aria-label="Buscar línea o núcleo">
+          <input id="line-search" type="search" placeholder="Buscar línea" aria-label="Buscar línea">
         </div>
-        <div class="lines-head"><span>Línea</span><span>Trenes</span><span>Retraso medio</span><span>Puntuales</span><span>Última hora</span></div>
+        <div class="lines-head"><span>Línea</span><span>Trenes</span><span>Retraso medio</span><span>Puntuales</span><span>Tendencia</span></div>
         <ol class="lines" id="lines"></ol>
       </div>
     </section>
@@ -54,14 +103,14 @@
     <section class="grid-2">
       <div class="card">
         <div class="card-head">
-          <h2>Anomalías</h2>
+          <h2>Anomalías detectadas</h2>
           <span class="muted small" id="anom-count"></span>
         </div>
         <ul class="feed" id="anomalies"></ul>
       </div>
       <div class="card">
         <div class="card-head">
-          <h2>Avisos de Renfe</h2>
+          <h2>Avisos oficiales de Renfe</h2>
           <span class="muted small" id="alerts-count"></span>
         </div>
         <ul class="feed" id="alerts"></ul>
@@ -79,7 +128,7 @@
       </div>
       <div class="charts">
         <figure>
-          <figcaption>Retraso medio (min), ventanas de 5 min</figcaption>
+          <figcaption>Retraso medio (min) · ventanas de 5 min</figcaption>
           <div class="chart" id="chart-delay"></div>
           <details><summary>Ver tabla</summary><div id="table-delay" class="tbl-wrap"></div></details>
         </figure>
@@ -102,6 +151,7 @@
       <div class="card" id="prediction-card">
         <div class="card-head">
           <h2>Predicción a 15 min</h2>
+          <span class="pill soft">Próximamente</span>
         </div>
         <div id="prediction"></div>
       </div>
@@ -110,17 +160,65 @@
     <section class="card">
       <div class="card-head">
         <h2>Salud de los datos</h2>
-        <span class="muted small">última hora · contratos aplicados a cada mensaje</span>
+        <span class="muted small">contratos aplicados a cada mensaje · última hora</span>
       </div>
       <div class="tbl-wrap"><table class="quality" id="quality"></table></div>
       <p class="muted small" id="counters"></p>
     </section>
   </main>
 
+  <section class="how" id="como-funciona">
+    <div class="how-inner">
+      <p class="eyebrow">Cómo funciona</p>
+      <h2>De un fichero de Renfe a una anomalía en el mapa</h2>
+      <ol class="pipeline">
+        <li>
+          <span class="step">1</span>
+          <h3>Ingesta</h3>
+          <p>Cada 30 s se descargan los feeds GTFS-Realtime de Renfe (retrasos, posiciones y avisos). El mensaje original se archiva en Parquet.</p>
+          <span class="tech">Python · httpx · Parquet</span>
+        </li>
+        <li>
+          <span class="step">2</span>
+          <h3>Calidad</h3>
+          <p>Contratos sobre cada evento: esquema, nulos, duplicados, horas imposibles. Lo que falla va a una cola de rechazados con el motivo.</p>
+          <span class="tech">Pydantic · DLQ</span>
+        </li>
+        <li>
+          <span class="step">3</span>
+          <h3>Bus de eventos</h3>
+          <p>Los eventos válidos viajan por Redpanda (compatible con Kafka), ordenados por tren y reproducibles.</p>
+          <span class="tech">Redpanda / Kafka</span>
+        </li>
+        <li>
+          <span class="step">4</span>
+          <h3>Streaming</h3>
+          <p>Ventanas de 5 min por hora del evento: retraso medio, p90, puntualidad y detección de picos, cancelaciones y trenes detenidos.</p>
+          <span class="tech">Watermarks · z-score robusto</span>
+        </li>
+        <li>
+          <span class="step">5</span>
+          <h3>Panel</h3>
+          <p>Una API sirve el estado en vivo y el histórico (DuckDB sobre Parquet) a este panel.</p>
+          <span class="tech">FastAPI · DuckDB · Leaflet</span>
+        </li>
+      </ol>
+      <div class="facts" id="facts">
+        <div><strong>±24 h</strong><span>retrasos mal calculados por Renfe cerca de medianoche, detectados y corregidos</span></div>
+        <div><strong>1 h</strong><span>de desfase en la hora de un feed oficial, detectado por los contratos</span></div>
+        <div><strong>0 €</strong><span>datos abiertos CC-BY 4.0 y software libre; despliegue en plan gratuito</span></div>
+      </div>
+      <p class="how-links">
+        <a class="button" href="https://github.com/Carlosvd7/pulso-transporte" rel="noopener">Ver el código en GitHub</a>
+        <a class="button ghost" href="https://carlosmanuelvelazquez.netlify.app" rel="noopener">Portfolio de Carlos Manuel Velázquez</a>
+      </p>
+    </div>
+  </section>
+
   <footer>
     <p>Datos: <a href="https://data.renfe.com" rel="noopener">Renfe Data</a> (GTFS-Realtime y GTFS, CC-BY 4.0). Mapa: © colaboradores de OpenStreetMap.
       Puntual = menos de 3 min de retraso en Cercanías y menos de 5 min en AV/LD (criterio propio).
-      Proyecto de portfolio, sin relación con Renfe. <a href="https://github.com/Carlosvd7/pulso-transporte" rel="noopener">Código</a></p>
+      Proyecto de portfolio, sin relación con Renfe.</p>
   </footer>
 
   <div id="tip" class="tip" role="tooltip" hidden></div>

@@ -150,6 +150,20 @@ circulación.
 y el resto de planes gratuitos (Render, Koyeb…) duermen el servicio cuando no hay visitas, lo
 que cortaría la ingesta.
 
+## Demo pública (repetición de datos reales)
+
+**https://carlosvd7.github.io/pulso-transporte/** — el mismo panel, reproduciendo un tramo real
+grabado (aviso visible de que es una repetición). `pulso demo` reprocesa el histórico de bronze
+con el mismo código que en directo y guarda una foto del estado cada 5 minutos; la web estática
+la reproduce sin servidor (GitHub Pages).
+
+```powershell
+uv run pulso demo --since 2026-11-26T14:10 --until 2026-11-26T16:35 --out site
+```
+
+Con datos de día los contratos encontraron más defectos reales del feed: viajes repetidos en
+el mismo mensaje de Cercanías y posiciones de AV/LD fuera de España (rechazadas a la DLQ).
+
 ## Arranque rápido
 
 Requisitos: Python 3.12 y [uv](https://docs.astral.sh/uv/).

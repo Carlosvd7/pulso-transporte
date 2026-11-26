@@ -107,3 +107,46 @@ def test_lite_pipeline_runs_end_to_end_without_kafka(tmp_path, fixture_bytes, mo
     assert len(state["trains"]) == 95
     assert state["quality"]["cercanias_trip_updates"]["n_in"] == 95  # 2ª vuelta: sin cambios
     assert list((tmp_path / "bronze").rglob("*.parquet"))
+
+
+def test_demo_build_writes_replayable_site(tmp_path, fixture_bytes):
+    import json
+    from datetime import UTC, datetime, timedelta
+
+    from pulso.bronze import BronzeWriter, Snapshot
+    from pulso.demo import build_demo
+    from pulso.parse import decode, header_timestamp
+
+    payload = fixture_bytes("trip_updates")
+    t0 = header_timestamp(decode(payload))
+    w = BronzeWriter(tmp_path)
+    for i in range(12):  # 12 snapshots, uno por minuto, con el mismo contenido real
+        msg = decode(payload)
+        msg.header.timestamp = int((t0 + timedelta(minutes=i)).timestamp())
+        w.add(
+            Snapshot(
+                "cercanias_trip_updates",
+                t0 + timedelta(minutes=i, seconds=5),
+                t0 + timedelta(minutes=i),
+                95,
+                msg.SerializeToString(),
+            )
+        )
+    w.flush()
+    settings = Settings(
+        data_dir=tmp_path,
+        poll_interval_s=30,
+        flush_interval_s=120,
+        http_timeout_s=5,
+        user_agent="test",
+    )
+    out = tmp_path / "site"
+    m = build_demo(settings, out, t0, t0 + timedelta(minutes=12), every_min=5, warmup_min=0)
+    assert len(m["frames"]) >= 2
+    frame = json.loads((out / "data" / m["frames"][0]["file"]).read_text(encoding="utf-8"))
+    assert len(frame["trains"]) == 95 and "lines" in frame and "quality" in frame
+    html = (out / "index.html").read_text(encoding="utf-8")
+    assert 'window.PULSO_DEMO = "data/manifest.json"' in html and 'src="static/app.js"' in html
+    assert (out / "static" / "app.js").exists() and (out / ".nojekyll").exists()
+    assert not (out / "_work").exists()
+    assert datetime.fromisoformat(m["since"]).tzinfo == UTC
