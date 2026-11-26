@@ -4,7 +4,7 @@ Retrasos de Renfe (Cercanías y AV/LD/MD) en tiempo real: ingesta continua, proc
 streaming, calidad de datos, predicción de retrasos y un panel en vivo.
 
 > 🚧 En construcción. Hechas: fases 0 (recolector), 1 (horarios + modelo de datos),
-> 2 (bus + calidad) y 3 (procesamiento en streaming + anomalías).
+> 2 (bus + calidad), 3 (procesamiento en streaming + anomalías) y 4 (panel web).
 
 ## Datos
 
@@ -110,6 +110,21 @@ Decisiones de diseño:
   pasados que Renfe sigue publicando (4 818 eventos en la primera noche), los retrasos
   marcados como extremos y los trenes detenidos (que se muestran como anomalía).
 
+## Panel en vivo (fase 4)
+
+`pulso serve` levanta una API FastAPI y el panel (HTML + JS sin framework, Leaflet para el mapa):
+
+- Resumen: trenes en circulación, retraso medio, % de puntuales, anomalías y cancelados.
+- Mapa con cada tren coloreado por su retraso, y lista de líneas con su evolución en la
+  última hora (al pulsar una línea, el mapa se queda solo con sus trenes).
+- Anomalías (activas y resueltas en 24 h) y avisos oficiales de Renfe.
+- Evolución del retraso medio y de la puntualidad por red (2, 6 o 24 h), con tabla accesible.
+- Estaciones con más retraso en la última hora y salud de los datos por fuente.
+- Modo claro/oscuro, adaptado a móvil.
+
+API: `/api/state`, `/api/kpis`, `/api/stops`, `/api/anomalies`, `/api/quality`,
+`/api/predictions`, `/api/health` (documentación automática en `/docs`).
+
 ## Arranque rápido
 
 Requisitos: Python 3.12 y [uv](https://docs.astral.sh/uv/).
@@ -128,7 +143,7 @@ uv run pytest
 Con Docker (recomendado, se reinicia solo):
 
 ```powershell
-docker compose up -d        # Redpanda + consola (http://localhost:8080) + productor + procesador
+docker compose up -d        # Redpanda + consola (:8080) + productor + procesador + panel (:8088)
 uv run pulso quality        # métricas de calidad de la última hora
 uv run pulso replay         # re-publicar el histórico de bronze en Redpanda
 ```

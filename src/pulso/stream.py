@@ -373,6 +373,7 @@ class StreamProcessor:
                     "lon": tr.lon,
                     "updated_at": tr.updated_at.isoformat() if tr.updated_at else None,
                     "stalled": ("tren_detenido", tr.network, tr.trip_id) in self.anomalies.active,
+                    "stale": self.watermark is not None and self._is_stale(tr, self.watermark),
                 }
             )
         lines: dict[tuple, dict] = {}

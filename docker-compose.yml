@@ -69,5 +69,16 @@ services:
     stop_grace_period: 20s
     restart: unless-stopped
 
+  web:
+    image: pulso-transporte:local
+    command: ["serve", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8088:8000"           # panel en http://localhost:8088
+    volumes:
+      - ./data:/app/data:ro   # solo lee live/ y gold/
+    depends_on:
+      - processor
+    restart: unless-stopped
+
 volumes:
   redpanda-data:

@@ -135,6 +135,13 @@ def _cmd_process(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_serve(args: argparse.Namespace) -> int:
+    from pulso.api import serve
+
+    serve(args.host, args.port)
+    return 0
+
+
 def _cmd_quality(args: argparse.Namespace) -> int:
     from pulso.quality import format_summary, read_recent_reports, summarize
 
@@ -199,6 +206,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--since", type=date.fromisoformat, help="(offline) AAAA-MM-DD")
     p.add_argument("--until", type=date.fromisoformat, help="(offline) AAAA-MM-DD")
     p.set_defaults(func=_cmd_process)
+
+    p = sub.add_parser("serve", help="API + panel web (lee data/live y data/gold)")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=8000)
+    p.set_defaults(func=_cmd_serve)
 
     p = sub.add_parser("quality", help="métricas de calidad recientes (desde Redpanda)")
     p.add_argument("--minutes", type=float, default=60)
