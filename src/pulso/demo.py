@@ -15,6 +15,7 @@ Salida (en `out/`):
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import shutil
@@ -229,7 +230,12 @@ def build_demo(
 
     shutil.copytree(WEB_DIR, out / "static", ignore=shutil.ignore_patterns("index.html"))
     html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
-    html = html.replace('href="/static/', 'href="static/').replace('src="/static/', 'src="static/')
+    # Versión por contenido en las URLs: tras republicar, nadie se queda con el JS viejo en caché.
+    version = hashlib.sha256(
+        b"".join((WEB_DIR / f).read_bytes() for f in ("app.js", "styles.css"))
+    ).hexdigest()[:10]
+    for asset in ("styles.css", "app.js"):
+        html = html.replace(f"/static/{asset}", f"static/{asset}?v={version}")
     html = html.replace(
         "<head>", '<head>\n  <script>window.PULSO_DEMO = "data/manifest.json";</script>', 1
     )

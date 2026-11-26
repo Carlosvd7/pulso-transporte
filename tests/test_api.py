@@ -146,7 +146,7 @@ def test_demo_build_writes_replayable_site(tmp_path, fixture_bytes):
     frame = json.loads((out / "data" / m["frames"][0]["file"]).read_text(encoding="utf-8"))
     assert len(frame["trains"]) == 95 and "lines" in frame and "quality" in frame
     html = (out / "index.html").read_text(encoding="utf-8")
-    assert 'window.PULSO_DEMO = "data/manifest.json"' in html and 'src="static/app.js"' in html
+    assert 'window.PULSO_DEMO = "data/manifest.json"' in html and 'src="static/app.js?v=' in html
     assert (out / "static" / "app.js").exists() and (out / ".nojekyll").exists()
     assert not (out / "_work").exists()
     assert datetime.fromisoformat(m["since"]).tzinfo == UTC
