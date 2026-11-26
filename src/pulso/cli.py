@@ -1,4 +1,4 @@
-"""Línea de comandos: `pulso collect`, `pulso status`."""
+"""Línea de comandos: collect, status, static, silver, report."""
 
 from __future__ import annotations
 
@@ -43,6 +43,38 @@ def _cmd_status(_: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_static(_: argparse.Namespace) -> int:
+    from pulso.static_gtfs import refresh
+
+    built = refresh(load_settings())
+    print(f"{len(built)} versiones nuevas del GTFS estático procesadas.")
+    return 0
+
+
+def _cmd_silver(args: argparse.Namespace) -> int:
+    from pulso.silver import build_silver
+
+    written = build_silver(load_settings(), limit=args.limit)
+    print(f"Filas nuevas en silver: {written or 'ninguna (nada pendiente)'}")
+    return 0
+
+
+def _cmd_report(_: argparse.Namespace) -> int:
+    from pulso.warehouse import connect, join_report
+
+    con = connect(load_settings())
+    tables = {r[0] for r in con.execute("show tables").fetchall()}
+    if "trip_delays" not in tables:
+        print("Faltan datos: ejecuta antes `pulso static` y `pulso silver`.")
+        return 1
+    print("red        viajes  cruzados  %viajes  %estación  observaciones  corregidos±24h")
+    for net, n, m, pct, pct_stop, obs, wrapped in join_report(con):
+        print(
+            f"{net:10s} {n:6d} {m:9d} {pct or 0:8.1f} {pct_stop or 0:10.1f} {obs:14d} {wrapped:15d}"
+        )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="pulso", description="Pulso del transporte")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -55,6 +87,16 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("status", help="resumen de lo recogido")
     p.set_defaults(func=_cmd_status)
+
+    p = sub.add_parser("static", help="descargar y limpiar el GTFS estático (si cambió)")
+    p.set_defaults(func=_cmd_static)
+
+    p = sub.add_parser("silver", help="decodificar bronze pendiente a tablas silver")
+    p.add_argument("--limit", type=int, default=None, help="máximo de ficheros a procesar")
+    p.set_defaults(func=_cmd_silver)
+
+    p = sub.add_parser("report", help="tasa de cruce tiempo real <-> horario planificado")
+    p.set_defaults(func=_cmd_report)
 
     args = parser.parse_args(argv)
     logging.basicConfig(
