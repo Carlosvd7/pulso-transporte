@@ -23,8 +23,15 @@
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(24, 1, 0.1, 200);
-  camera.position.set(7, 3.6, 17.5);
-  camera.lookAt(-0.6, 0.6, 0);
+  // Encuadre pensado para un hueco ancho (proporción ~2,2); si es más estrecho, la cámara se aleja.
+  const TARGET = new THREE.Vector3(-0.6, 0.6, 0);
+  const BASE_OFFSET = new THREE.Vector3(7, 3.6, 17.5).sub(TARGET);
+  const DESIGN_ASPECT = 2.2;
+  function frameCamera(aspect) {
+    const k = Math.max(1, DESIGN_ASPECT / aspect);
+    camera.position.copy(TARGET).addScaledVector(BASE_OFFSET, k);
+    camera.lookAt(TARGET);
+  }
 
   // ---------------------------------------------------------------- materiales
   const mat = {
@@ -201,8 +208,10 @@
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
+    frameCamera(camera.aspect);
+    kick();
   }
-  new ResizeObserver(resize).observe(host);
+  new ResizeObserver(() => resize()).observe(host);
 
   // ---------------------------------------------------------------- animación
   let visible = true, last = performance.now(), t = 0, raf = 0;
