@@ -66,7 +66,7 @@ def test_silver_is_incremental_and_dedupes_alerts(tmp_path, fixture_bytes):
 
     assert len(pending_bronze(s)) == 2
     written = build_silver(s)
-    assert written == {"alerts": 80, "trip_updates": 95}
+    assert written == {"alerts": 78, "trip_updates": 95}
     assert pending_bronze(s) == []
     assert build_silver(s) == {}  # segunda pasada: nada que hacer
 

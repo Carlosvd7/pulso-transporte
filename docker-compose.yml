@@ -1,0 +1,58 @@
+# Pila local de Pulso del transporte.
+#   docker compose up -d            -> Redpanda + consola + productor
+#   http://localhost:8080           -> Redpanda Console (ver temas y mensajes)
+name: pulso
+
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v26.2.7
+    command:
+      - redpanda start
+      - --mode dev-container          # un nodo, sin fsync estricto: pensado para portátil
+      - --smp 1
+      - --memory 1G
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --default-log-level=warn
+    ports:
+      - "19092:19092"   # Kafka para clientes fuera de Docker
+      - "18081:18081"   # Schema Registry
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  console:
+    image: docker.redpanda.com/redpandadata/console:v3.13.1
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
+    ports:
+      - "8080:8080"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    restart: unless-stopped
+
+  producer:
+    build: .
+    image: pulso-transporte:local
+    command: ["produce"]
+    environment:
+      PULSO_KAFKA_BOOTSTRAP: redpanda:9092
+    volumes:
+      - ./data:/app/data      # bronze y GTFS estático quedan en tu disco
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    stop_grace_period: 30s    # tiempo para volcar a Parquet lo pendiente al parar
+    restart: unless-stopped
+
+volumes:
+  redpanda-data:

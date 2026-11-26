@@ -6,6 +6,8 @@ No se descarta nada aquí: si un campo falta, queda a None para poder medirlo.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import UTC, datetime
 from typing import Any
 
@@ -126,26 +128,53 @@ def _text(ts: rt.TranslatedString, lang: str = "es") -> str | None:
 
 
 def alert_rows(msg: rt.FeedMessage, network: str) -> list[Row]:
+    """Una fila por aviso. Renfe a veces publica el mismo aviso (mismo id y texto) en varias
+    entidades, repartiendo las líneas afectadas; se fusionan uniendo líneas y paradas."""
     feed_ts = header_timestamp(msg)
-    rows: list[Row] = []
+    rows: dict[str, Row] = {}
     for ent in msg.entity:
         if not ent.HasField("alert"):
             continue
         al = ent.alert
+        routes = {ie.route_id for ie in al.informed_entity if ie.route_id}
+        stops = {ie.stop_id for ie in al.informed_entity if ie.stop_id}
+        if ent.id in rows:
+            prev = rows[ent.id]
+            prev["route_ids"] = sorted(set(prev["route_ids"]) | routes)
+            prev["stop_ids"] = sorted(set(prev["stop_ids"]) | stops)
+            prev["n_entities"] += 1
+            continue
         period = al.active_period[0] if al.active_period else None
-        rows.append(
-            {
-                "network": network,
-                "feed_ts": feed_ts,
-                "alert_id": ent.id,
-                "active_start": _ts(_opt(period, "start")) if period else None,
-                "active_end": _ts(_opt(period, "end")) if period else None,
-                "route_ids": sorted({ie.route_id for ie in al.informed_entity if ie.route_id}),
-                "stop_ids": sorted({ie.stop_id for ie in al.informed_entity if ie.stop_id}),
-                "cause": _CAUSE(al.cause) if al.HasField("cause") else None,
-                "effect": _EFFECT(al.effect) if al.HasField("effect") else None,
-                "header": _text(al.header_text),
-                "description": _text(al.description_text),
-            }
-        )
-    return rows
+        rows[ent.id] = {
+            "network": network,
+            "feed_ts": feed_ts,
+            "alert_id": ent.id,
+            "active_start": _ts(_opt(period, "start")) if period else None,
+            "active_end": _ts(_opt(period, "end")) if period else None,
+            "route_ids": sorted(routes),
+            "stop_ids": sorted(stops),
+            "cause": _CAUSE(al.cause) if al.HasField("cause") else None,
+            "effect": _EFFECT(al.effect) if al.HasField("effect") else None,
+            "header": _text(al.header_text),
+            "description": _text(al.description_text),
+            "n_entities": 1,
+        }
+    return list(rows.values())
+
+
+_ALERT_CONTENT_KEYS = (
+    "active_start",
+    "active_end",
+    "route_ids",
+    "stop_ids",
+    "cause",
+    "effect",
+    "header",
+    "description",
+)
+
+
+def alert_content_sha(row: Row) -> str:
+    """Huella del contenido de un aviso (para detectar avisos nuevos o modificados)."""
+    blob = json.dumps({k: row.get(k) for k in _ALERT_CONTENT_KEYS}, default=str, sort_keys=True)
+    return hashlib.sha256(blob.encode()).hexdigest()[:16]

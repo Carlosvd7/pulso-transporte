@@ -39,9 +39,16 @@ def test_vehicle_positions_inside_spain(fixture_bytes):
 
 def test_alerts_keep_spanish_text(fixture_bytes):
     rows = alert_rows(decode(fixture_bytes("alerts")), "cercanias")
-    assert len(rows) == 80
+    assert len(rows) == 78  # 80 entidades, 2 avisos repetidos fusionados
     first = rows[0]
     assert first["alert_id"] == "AVISO_528568"
     assert "recuperarán" in first["description"]
     assert "10T0017C5" in first["route_ids"]
     assert first["active_start"] is not None
+
+
+def test_alerts_with_same_id_are_merged(fixture_bytes):
+    rows = {r["alert_id"]: r for r in alert_rows(decode(fixture_bytes("alerts")), "cercanias")}
+    merged = rows["AVISO_526429"]  # Renfe lo publica en 2 entidades con líneas distintas
+    assert merged["n_entities"] == 2
+    assert {"51T0029R7", "51T0001R1"} <= set(merged["route_ids"])

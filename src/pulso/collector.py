@@ -11,6 +11,7 @@ import logging
 import signal
 import time
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -64,8 +65,14 @@ def is_new(state: FeedState, snap: Snapshot) -> bool:
 
 
 class Collector:
-    def __init__(self, settings: Settings, feeds: tuple[Feed, ...] = FEEDS) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        feeds: tuple[Feed, ...] = FEEDS,
+        on_snapshot: Callable[[Feed, Snapshot], object] | None = None,
+    ) -> None:
         self.settings = settings
+        self.on_snapshot = on_snapshot
         self.feeds = feeds
         self.writer = BronzeWriter(settings.data_dir)
         self.state = {f.key: FeedState() for f in feeds}
@@ -91,6 +98,12 @@ class Collector:
             st.last_header_ts, st.last_sha = snap.header_ts, snap.sha256
             self.writer.add(snap)
             self.stats.inc(feed.key, "saved")
+            if self.on_snapshot is not None:
+                try:
+                    self.on_snapshot(feed, snap)
+                except Exception:  # el archivo crudo ya está a salvo; se cuenta y se sigue
+                    self.stats.inc(feed.key, "handler_errors")
+                    log.exception("feed %s: fallo al procesar el snapshot", feed.key)
 
     def maybe_flush(self, force: bool = False) -> None:
         due = time.monotonic() - self._last_flush >= self.settings.flush_interval_s

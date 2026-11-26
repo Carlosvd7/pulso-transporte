@@ -65,13 +65,15 @@ class Settings:
     flush_interval_s: float
     http_timeout_s: float
     user_agent: str
+    kafka_bootstrap: str = "localhost:19092"
 
 
 def load_settings() -> Settings:
     return Settings(
         data_dir=Path(os.environ.get("PULSO_DATA_DIR", "data")),
         poll_interval_s=float(os.environ.get("PULSO_POLL_INTERVAL_S", "30")),
-        flush_interval_s=float(os.environ.get("PULSO_FLUSH_INTERVAL_S", "600")),
+        flush_interval_s=float(os.environ.get("PULSO_FLUSH_INTERVAL_S", "120")),
         http_timeout_s=float(os.environ.get("PULSO_HTTP_TIMEOUT_S", "20")),
         user_agent=os.environ.get("PULSO_USER_AGENT", "pulso-transporte/0.1"),
+        kafka_bootstrap=os.environ.get("PULSO_KAFKA_BOOTSTRAP", "localhost:19092"),
     )

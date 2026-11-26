@@ -9,8 +9,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
 from collections.abc import Callable
 from pathlib import Path
@@ -19,7 +17,14 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from pulso.config import FEEDS_BY_KEY, FeedKind, Settings
-from pulso.parse import Row, alert_rows, decode, trip_update_rows, vehicle_position_rows
+from pulso.parse import (
+    Row,
+    alert_content_sha,
+    alert_rows,
+    decode,
+    trip_update_rows,
+    vehicle_position_rows,
+)
 
 log = logging.getLogger(__name__)
 
@@ -94,26 +99,11 @@ _SCHEMAS = {
 }
 
 
-def _alert_sha(row: Row) -> str:
-    keys = (
-        "active_start",
-        "active_end",
-        "route_ids",
-        "stop_ids",
-        "cause",
-        "effect",
-        "header",
-        "description",
-    )
-    blob = json.dumps({k: row[k] for k in keys}, default=str, sort_keys=True)
-    return hashlib.sha256(blob.encode()).hexdigest()[:16]
-
-
 def _dedupe_alerts(rows_by_snapshot: list[tuple[object, list[Row]]]) -> list[Row]:
     out: dict[tuple[str, str], Row] = {}
     for fetched_at, rows in rows_by_snapshot:
         for r in rows:
-            key = (r["alert_id"], _alert_sha(r))
+            key = (r["alert_id"], alert_content_sha(r))
             if key in out:
                 out[key]["last_seen"] = fetched_at
                 out[key]["n_seen"] += 1
